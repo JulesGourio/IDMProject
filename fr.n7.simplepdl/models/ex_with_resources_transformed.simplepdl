@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<simplepdl:Process xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:simplepdl="http://simplepdl" name="ex_with_resources">
+  <processElements xsi:type="simplepdl:Resource" name="cpu" nbAvailableResources="2" needs="//@processElements.3/@need.0 //@processElements.4/@need.0"/>
+  <processElements xsi:type="simplepdl:Resource" name="memory" nbAvailableResources="8" needs="//@processElements.3/@need.1 //@processElements.5/@need.0"/>
+  <processElements xsi:type="simplepdl:Resource" name="disk" nbAvailableResources="100" needs="//@processElements.4/@need.1 //@processElements.5/@need.1"/>
+  <processElements xsi:type="simplepdl:WorkDefinition" linksToSuccessors="//@processElements.6" name="task1">
+    <need nbResources="1" resource="//@processElements.0"/>
+    <need nbResources="1" resource="//@processElements.1"/>
+  </processElements>
+  <processElements xsi:type="simplepdl:WorkDefinition" linksToPredecessors="//@processElements.6" linksToSuccessors="//@processElements.7" name="task2">
+    <need nbResources="1" resource="//@processElements.0"/>
+    <need nbResources="1" resource="//@processElements.2"/>
+  </processElements>
+  <processElements xsi:type="simplepdl:WorkDefinition" linksToPredecessors="//@processElements.7" name="task3">
+    <need nbResources="1" resource="//@processElements.1"/>
+    <need nbResources="1" resource="//@processElements.2"/>
+  </processElements>
+  <processElements xsi:type="simplepdl:WorkSequence" linkType="finishToFinish" predecessor="//@processElements.3" successor="//@processElements.4"/>
+  <processElements xsi:type="simplepdl:WorkSequence" linkType="finishToFinish" predecessor="//@processElements.4" successor="//@processElements.5"/>
+</simplepdl:Process>

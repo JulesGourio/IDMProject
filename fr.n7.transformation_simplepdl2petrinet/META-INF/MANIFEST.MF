@@ -1,0 +1,14 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Transformation_simplepdl2petrinet
+Bundle-SymbolicName: fr.n7.transformation_simplepdl2petrinet
+Bundle-Version: 1.0.0.qualifier
+Require-Bundle: org.eclipse.swt,
+ org.eclipse.jface,
+ org.eclipse.emf.ecore;bundle-version="2.38.0",
+ org.eclipse.emf.common.source;bundle-version="2.41.0",
+ org.eclipse.emf.ecore.xmi;bundle-version="2.38.0",
+ fr.n7.simplepdl;bundle-version="1.0.0",
+ fr.n7.petriNet;bundle-version="1.0.0"
+Automatic-Module-Name: fr.n7.transformation.simplepdl2petrinet
+Bundle-RequiredExecutionEnvironment: JavaSE-23

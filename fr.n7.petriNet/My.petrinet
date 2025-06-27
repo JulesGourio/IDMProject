@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<petrinet:PetriNet xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:petrinet="http://petrinet" name="validation">
+  <petriElements xsi:type="petrinet:Place" name="P1" outgoing="//@petriElements.2" marking="1"/>
+  <petriElements xsi:type="petrinet:Transition" name="T1" incoming="//@petriElements.2"/>
+  <petriElements xsi:type="petrinet:Arc" name="Arc1" weight="1" source="//@petriElements.0" target="//@petriElements.1"/>
+</petrinet:PetriNet>

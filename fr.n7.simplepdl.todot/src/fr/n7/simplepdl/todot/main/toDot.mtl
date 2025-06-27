@@ -1,0 +1,51 @@
+[comment encoding = UTF-8 /]
+[module toDot('http://simplepdl')]
+
+[template public processToHTML(aProcess : Process)]
+[comment @main/]
+[file (aProcess.name + '.dot', false, 'UTF-8')]
+digraph "[aProcess.name/]" {
+[let wds : OrderedSet(WorkDefinition) = aProcess.getWDs()] 
+	[if (wds->size() > 0)]
+		[for (wd : WorkDefinition | wds)]
+			[for (ws : WorkSequence | wd.linksToPredecessors)]
+				[ws.predecessor.name/] -> [wd.name/] [ '[' /] arrowhead=vee label=[ws.linkType.toState()/] [ ']' /]
+			[/for]
+			[let needs : OrderedSet(Need) = wd.getNeeds()]
+				[if (needs->size() > 0)]
+					[for (need : Need | needs)]
+						[need.resource.name/] -> [need.workdefinition.name/] [ '[' /] arrowhead=vee, style=dotted label=[need.nbResources.toString()/] [ ']' /]
+					[/for]
+				[/if]
+			[/let]
+		[/for]
+	[else]
+	[/if]
+[/let]
+}
+[/file]
+[/template]
+
+[query public getWDs(p: Process) : OrderedSet(WorkDefinition) = 
+	p.processElements->select( e | e.oclIsTypeOf(WorkDefinition) )
+		->collect( e | e.oclAsType(WorkDefinition) )
+		->asOrderedSet()
+/]
+
+[query public getNeeds(awd: WorkDefinition) : OrderedSet(Need) = 
+	awd.need->asOrderedSet()
+/]
+
+[query public toState(link: WorkSequenceType) : String =
+    if link = WorkSequenceType::startToStart then
+        's2s'
+    else if link = WorkSequenceType::startToFinish then
+        's2f'
+    else if link = WorkSequenceType::finishToStart then
+        'f2s'
+    else if link = WorkSequenceType::finishToFinish then
+        'f2f'
+    else
+        'unknown'
+    endif endif endif endif
+/]

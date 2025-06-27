@@ -1,0 +1,92 @@
+-- @path SimplePDL=/fr.n7.simplepdl/SimplePDL.ecore
+-- @path TM=/fr.n7.Taskmaster/TaskMaster.ecore
+
+module SimplePDL2TaskMaster;
+create OUT : TM from IN : SimplePDL;
+
+-- Helper pour récupérer le Process contenant un ProcessElement
+helper context SimplePDL!ProcessElement
+def: getProcess() : SimplePDL!Process =
+    SimplePDL!Process.allInstances()->select(e | e.processElements->includes(self))->first();
+
+-- Helper pour déterminer le type d'événement source selon le type de WorkSequence
+helper context SimplePDL!WorkSequence
+def: getSourceEventType() : String =
+    if self.linkType = #startToStart or self.linkType = #startToFinish then
+        'start'
+    else
+        'finish'
+    endif;
+
+-- Helper pour déterminer le type d'événement cible selon le type de WorkSequence
+helper context SimplePDL!WorkSequence
+def: getTargetEventType() : String =
+    if self.linkType = #startToStart or self.linkType = #finishToStart then
+        'start'
+    else
+        'finish'
+    endif;
+
+-- Règle 1: Transformation Process vers EventBundle
+rule Process2EventBundle {
+    from process : SimplePDL!Process
+    to
+    bundle : TM!EventBundle(name <- process.name)
+}
+
+-- Règle 2: Transformation WorkDefinition vers deux Events et une dépendance causale
+rule WD2Task {
+    from wd : SimplePDL!WorkDefinition
+    to 
+    event_start : TM!Event(
+        bundle <- wd.getProcess(),
+        name <- wd.name + '_start'
+    ),
+    event_finish: TM!Event(
+        bundle <- wd.getProcess(),
+        name <- wd.name + '_finish'
+    ),
+    finish_after_start: TM!Causal(
+        event <- event_finish, 
+        target <- event_start
+    )
+}
+
+-- Règle 3: Transformation WorkSequence vers dépendance causale
+rule WS2Requirement {
+    from ws : SimplePDL!WorkSequence
+    to
+    req : TM!Causal(
+        event <- thisModule.resolveTemp(ws.successor, 'event_' + ws.getTargetEventType()),
+        target <- thisModule.resolveTemp(ws.predecessor, 'event_' + ws.getSourceEventType())
+    )
+}
+
+-- Règle 4: Transformation Resource vers Supply
+rule Resource2Supply {
+    from resource : SimplePDL!Resource
+    to
+    supply : TM!Supply(
+        bundle <- resource.getProcess(),
+        name <- resource.name,
+        available <- resource.nbAvailableResources,
+        consumable <- false  
+    )
+}
+
+-- Règle 5: Transformation Need vers Physical requirement
+rule Need2Physical {
+    from need : SimplePDL!Need
+    to
+    physical_start : TM!Physical(
+        event <- thisModule.resolveTemp(need.workdefinition, 'event_start'),
+        target <- need.resource,
+        requested <- need.nbResources
+    ),
+    physical_finish : TM!Physical(
+        event <- thisModule.resolveTemp(need.workdefinition, 'event_finish'),
+        target <- need.resource,
+        requested <- 0 - need.nbResources  
+    )
+}
+

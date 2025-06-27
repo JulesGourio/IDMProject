@@ -1,0 +1,69 @@
+import 'SimplePDL.ecore'
+
+package simplepdl
+
+context ProcessElement
+def: process(): Process =
+	Process.allInstances()
+		->select(p | p.processElements->includes(self))
+		->asSequence()->first()
+
+context Process
+inv validProcessName('Invalid Process name: ' + self.name):
+	self.name.matches('[A-Za-z_][A-Za-z0-9_]*')
+	
+context WorkSequence
+inv predecessorAndSuccessorInSameProcess('Activities not in the same process: '
+	+ self.predecessor.name + ' in ' + self.predecessor.process().name + ' and '
+	+ self.successor.name + ' in ' + self.successor.process().name
+):
+	self.process() = self.successor.process()
+	and self.process() = self.predecessor.process()
+	
+context WorkSequence
+inv notReflexiveSuccessor(
+	'Successor (' + self.successor.name + ') and predecessor (' + self.predecessor.name + ') are the same'
+):
+	self.predecessor <> self.successor
+	
+context WorkDefinition
+inv uniqueWorkDefinitionName('WorkDefinition name ' + self.name + ' already exists'):
+	self.process().processElements
+	->select(e | e.oclIsKindOf(WorkDefinition))
+	->collect(e | e.oclAsType(WorkDefinition))
+	->select(e | self.name = e.name)
+	->size() = 1
+
+context Resource
+inv hasOneOrMoreNbResources('Resource property "nbAvailableResources" should be greater or equal to 1: ' + self.name):
+	self.nbAvailableResources >= 1
+
+context Resource
+inv uniqueResourceName('Resource name ' + self.name + ' already exists'):
+	self.process().processElements
+	->select(e | e.oclIsKindOf(Resource))
+	->collect(e | e.oclAsType(Resource))
+	->select(e | self.name = e.name)
+	->size() = 1
+
+context Need
+inv correctNeededNbResources('A WorkDefinition cannot need less than 1 or more than "nbAvailableResources" Resources: ' + self.resource.name + ' for ' + self.workdefinition.name):
+	self.nbResources >= 1 and self.nbResources <= self.resource.nbAvailableResources
+
+context Need
+inv resourceAndWorkDefinitionInSameProcess('Needed Resource and WorkDefinition not in the same process: ' + self.resource.name + ' for ' + self.workdefinition.name):
+	self.resource.process() = self.workdefinition.process()
+
+context WorkDefinition
+inv validWorkDefinitionName('Invalid WorkDefinition name: ' + self.name):
+	self.name.matches('[A-Za-z_][A-Za-z0-9_]*')
+	
+context Resource
+inv validResourceName('Invalid Resource name: ' + self.name):
+	self.name.matches('[A-Za-z_][A-Za-z0-9_]*')
+
+context WorkDefinition
+inv noRedundantNeed('Two Needs with the same Resource should not exist for the same WorkDefinition'):
+	self.need->forAll(n1,n2 : Need | n1 <> n2 implies n1.resource.name <> n2.resource.name)
+
+endpackage

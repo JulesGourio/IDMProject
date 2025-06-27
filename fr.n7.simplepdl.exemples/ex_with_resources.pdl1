@@ -1,0 +1,10 @@
+process ex_with_resources {
+resource cpu quantity 2
+resource memory quantity 8
+resource disk quantity 100
+wd a uses cpu, memory
+wd b uses cpu, disk
+wd c uses memory, disk
+ws f2s from a to b
+ws s2f from b to c
+}

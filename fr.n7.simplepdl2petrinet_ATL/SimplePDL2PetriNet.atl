@@ -1,0 +1,189 @@
+-- @path SimplePDL=/fr.n7.simplepdl/model/SimplePDL.ecore
+-- @path PetriNet=/fr.n7.petrinet/model/PetriNet.ecore
+
+module SimplePDL2PetriNet;
+create OUT : PetriNet from IN : SimplePDL;
+
+-- Transformation du Process en PetriNet
+rule Process2PetriNet {
+from
+    p : SimplePDL!Process
+to
+    pn : PetriNet!PetriNet (
+        name <- p.name,
+        petriElements <- p.processElements->select(e | e.oclIsKindOf(SimplePDL!WorkDefinition))
+            ->collect(wd | Sequence{
+                thisModule.resolveTemp(wd, 'notStarted'),
+                thisModule.resolveTemp(wd, 'started'),
+                thisModule.resolveTemp(wd, 'running'),
+                thisModule.resolveTemp(wd, 'finished'),
+                thisModule.resolveTemp(wd, 'start'),
+                thisModule.resolveTemp(wd, 'finish'),
+                thisModule.resolveTemp(wd, 'arcNotStartedToStart'),
+                thisModule.resolveTemp(wd, 'arcStartToStarted'),
+                thisModule.resolveTemp(wd, 'arcStartToRunning'),
+                thisModule.resolveTemp(wd, 'arcRunningToFinish'),
+                thisModule.resolveTemp(wd, 'arcFinishToFinished')
+            })->flatten()
+            ->union(p.processElements->select(e | e.oclIsKindOf(SimplePDL!WorkSequence))
+                ->collect(ws | Sequence{
+                    thisModule.resolveTemp(ws, 'readArc')
+                })->flatten())
+            ->union(p.processElements->select(e | e.oclIsKindOf(SimplePDL!Resource))
+                ->collect(r | Sequence{
+                    thisModule.resolveTemp(r, 'resourcePlace')
+                })->flatten())
+            ->union(SimplePDL!Need.allInstances()
+                ->collect(n | Sequence{
+                    thisModule.resolveTemp(n, 'takeArc'),
+                    thisModule.resolveTemp(n, 'releaseArc')
+                })->flatten())
+    )
+}
+
+-- Transformation des WorkDefinition en places et transitions
+rule WorkDefinition2PetriElements {
+from
+    wd : SimplePDL!WorkDefinition
+using {
+    proc : SimplePDL!Process = SimplePDL!Process.allInstances()->first();
+}
+to
+    notStarted : PetriNet!Place (
+        name <- wd.name + '_notStarted',
+        marking <- 1,
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    ),
+    started : PetriNet!Place (
+        name <- wd.name + '_started',
+        marking <- 0,
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    ),
+    running : PetriNet!Place (
+        name <- wd.name + '_running',
+        marking <- 0,
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    ),
+    finished : PetriNet!Place (
+        name <- wd.name + '_finished',
+        marking <- 0,
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    ),
+    start : PetriNet!Transition (
+        name <- wd.name + '_start',
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    ),
+    finish : PetriNet!Transition (
+        name <- wd.name + '_finish',
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    ),
+    -- Arcs pour le démarrage
+    arcNotStartedToStart : PetriNet!Arc (
+        name <- wd.name + '_notStarted_to_start',
+        source <- notStarted,
+        target <- start,
+        weight <- 1,
+        isReadArc <- false,
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    ),
+    arcStartToStarted : PetriNet!Arc (
+        name <- wd.name + '_start_to_started',
+        source <- start,
+        target <- started,
+        weight <- 1,
+        isReadArc <- false,
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    ),
+    arcStartToRunning : PetriNet!Arc (
+        name <- wd.name + '_start_to_running',
+        source <- start,
+        target <- running,
+        weight <- 1,
+        isReadArc <- false,
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    ),
+    -- Arcs pour la fin
+    arcRunningToFinish : PetriNet!Arc (
+        name <- wd.name + '_running_to_finish',
+        source <- running,
+        target <- finish,
+        weight <- 1,
+        isReadArc <- false,
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    ),
+    arcFinishToFinished : PetriNet!Arc (
+        name <- wd.name + '_finish_to_finished',
+        source <- finish,
+        target <- finished,
+        weight <- 1,
+        isReadArc <- false,
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    )
+}
+
+-- Transformation des WorkSequence en arcs de lecture
+rule WorkSequence2ReadArc {
+from
+    ws : SimplePDL!WorkSequence
+using {
+    proc : SimplePDL!Process = SimplePDL!Process.allInstances()->first();
+}
+to
+    readArc : PetriNet!Arc (
+        name <- ws.predecessor.name + '_to_' + ws.successor.name + '_' + ws.linkType.toString(),
+        source <- if ws.linkType = #startToStart or ws.linkType = #startToFinish then
+            thisModule.resolveTemp(ws.predecessor, 'started')
+        else
+            thisModule.resolveTemp(ws.predecessor, 'finished')
+        endif,
+        target <- if ws.linkType = #startToStart or ws.linkType = #finishToStart then
+            thisModule.resolveTemp(ws.successor, 'start')
+        else
+            thisModule.resolveTemp(ws.successor, 'finish')
+        endif,
+        weight <- 1,
+        isReadArc <- true,
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    )
+}
+
+-- Transformation des Resource en places
+rule Resource2Place {
+from
+    r : SimplePDL!Resource
+using {
+    proc : SimplePDL!Process = SimplePDL!Process.allInstances()->first();
+}
+to
+    resourcePlace : PetriNet!Place (
+        name <- r.name + '_resource',
+        marking <- r.nbAvailableResources,
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    )
+}
+
+-- Transformation des Need en arcs
+rule Need2Arcs {
+from
+    n : SimplePDL!Need
+using {
+    proc : SimplePDL!Process = SimplePDL!Process.allInstances()->first();
+}
+to
+    takeArc : PetriNet!Arc (
+        name <- n.resource.name + '_take_' + n.workdefinition.name,
+        source <- thisModule.resolveTemp(n.resource, 'resourcePlace'),
+        target <- thisModule.resolveTemp(n.workdefinition, 'start'),
+        weight <- n.nbResources,
+        isReadArc <- false,
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    ),
+    releaseArc : PetriNet!Arc (
+        name <- n.resource.name + '_release_' + n.workdefinition.name,
+        source <- thisModule.resolveTemp(n.workdefinition, 'finish'),
+        target <- thisModule.resolveTemp(n.resource, 'resourcePlace'),
+        weight <- n.nbResources,
+        isReadArc <- false,
+        petrinet <- thisModule.resolveTemp(proc, 'pn')
+    )
+}
